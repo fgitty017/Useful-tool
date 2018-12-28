@@ -72,6 +72,7 @@ clang_check()
 coccinelle_check()
 {
   mkclean -q
+  # use '-v' parameter for verbose mode
   ${gTOP}/coccichk .
   #wecho "coccinelle : make C=1 CHECK=${gKSRC}/scripts/coccicheck)"
   #make C=1 CHECK=${gKSRC}/scripts/coccicheck || Warn "*** $(pwd) : 'coccinelle_check' failed"
