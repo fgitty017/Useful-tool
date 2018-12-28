@@ -38,54 +38,73 @@ Warn()
 
 mkclean()
 {
-  [ "$1" != "-q" ] && aecho "make clean"
-  make clean >/dev/null || Warn "*** $(pwd) : 'make clean' failed"
+  local cmd="make clean"
+  [ "$1" != "-q" ] && wecho "${cmd}"
+  eval "${cmd}" > /dev/null || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' failed"
 }
 
 sparse_check()
 {
-  wecho "sparse :"
-  make C=1 CHECK="$(which sparse)" || Warn "*** $(pwd) : 'sparse' failed"
+  local cmd="make C=1 CHECK=\"$(which sparse)\""
+  mkclean -q
+  wecho "${cmd}"
+  eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' failed"
 }
 
 gccwarn1_check()
 {
+  local cmd="make W=1"
   mkclean -q
-  wecho "gcc : make W=1 ['generally useful warnings']"
-  make W=1 || Warn "*** $(pwd) : 'make W=1' failed"
+  wecho "gcc : ${cmd} 'generally useful warnings'"
+  eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' failed"
 }
 
 gccwarn12_check()
 {
+  local cmd="make W=12"
   mkclean -q
   # usually overkill
-  wecho "gcc : make W=12 ['possibly useful warnings']"
-  make W=12 || Warn "*** $(pwd) : 'make W=12' failed"
+  wecho "gcc : ${cmd} 'possibly useful warnings'"
+  eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' failed"
 }
 
 clang_check()
 {
+  local cmd="make -skj20 CC=$(which clang)"
   mkclean -q
-  wecho "clang : make -skj20 CC=$(which clang)"
-  make -skj20 CC=$(which clang) || Warn "*** $(pwd) : 'clang_check' failed"
+  wecho "${cmd}"
+  eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' failed"
 }
 
 coccinelle_check()
 {
+  local cmd="${gTOP}/coccichk ."
   mkclean -q
   # use '-v' parameter for verbose mode
-  ${gTOP}/coccichk .
-  #wecho "coccinelle : make C=1 CHECK=${gKSRC}/scripts/coccicheck)"
-  #make C=1 CHECK=${gKSRC}/scripts/coccicheck || Warn "*** $(pwd) : 'coccinelle_check' failed"
+  wecho "${cmd}"
+  eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' failed"
 }
 
 smatch_check()
 {
  # Ref: http://smatch.sourceforge.net/
+  local cmd="make CHECK=\"${gSMATCH_LOC}/smatch -p=kernel\" C=1"
   mkclean -q
-  wecho "make CHECK=\"${gSMATCH_LOC}/smatch -p=kernel\" C=1"
-  make CHECK="${gSMATCH_LOC}/smatch -p=kernel" C=1 || Warn "*** $(pwd) : 'smatch_check' failed"
+  wecho "${cmd}"
+  eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' failed"
 }
+
+# Not working ok; fails with:
+#  "cc1: error: code model kernel does not support PIC mode" ??
+scan-build_check()
+{
+ # Ref: https://clang-analyzer.llvm.org/scan-build.html
+  mkclean -q
+  local cmd="scan-build -v --use-analyzer=/usr/bin/gcc make"
+  wecho "${cmd}"
+  eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' failed"
+}
+
 
 check_folder()
 {
@@ -102,8 +121,10 @@ check_folder()
   gccwarn1_check
   #echo
   #gccwarn12_check   # overkill
-  echo
-  clang_check
+  #echo
+  #clang_check
+  #echo
+  #scan-build_check
   echo
   coccinelle_check
   echo
