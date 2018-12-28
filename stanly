@@ -1,16 +1,16 @@
 #!/bin/bash
-# stanly.sh
-# Static Analysis
+# stanly
 #
 # Quick Description:
+# Tooling - static analysis tools integrator script.
 # 
 # Ref: https://elinux.org/images/d/d3/Bargmann.pdf
 # 
-# Last Updated :
-# Created      :
+# Last Updated : 28Dec2018
+# Created      : 28Dec2018
 # 
 # Author:
-# Kaiwan N Billimoria
+# (c) Kaiwan N Billimoria
 # kaiwan -at- kaiwantech -dot- com
 # 
 # License: MIT.
@@ -26,7 +26,6 @@ source ${PFX}/common.sh || {
 # Style: gNameOfGlobalVar
 
 # UPDATE on your box!
-#gSRC=~/booksrc_LKDC/           # path to your codebase
 gKSRC=~/kernel/linux-4.19.4    # kernel source tree root
 
 ########### Functions follow #######################
@@ -73,7 +72,7 @@ clang_check()
 coccinelle_check()
 {
   mkclean -q
-  ${gTOOLS}/coccichk .
+  ${gTOP}/coccichk .
   #wecho "coccinelle : make C=1 CHECK=${gKSRC}/scripts/coccicheck)"
   #make C=1 CHECK=${gKSRC}/scripts/coccicheck || Warn "*** $(pwd) : 'coccinelle_check' failed"
 }
@@ -101,7 +100,6 @@ check_folder()
 start()
 {
 gSRC=$1
-gTOOLS=${gSRC}/tools
 
 IFS=$'\n'; set -f
 for d in $(find ${gSRC} -type d \
@@ -120,13 +118,15 @@ unset IFS; set +f
 tools_check()
 {
  which sparse >/dev/null || {
-   echo "${name}: sparse missing, pl install"
+   echo "${name}: 'sparse' missing, pl install"
    exit 1
  }
- [ ! -f ${gTOOLS}/coccichk ] && {
-   echo "${name}: coccichk helper script missing"
+ [ ! -f ./coccichk ] && {
+   echo "${name}: 'coccichk' helper script missing
+ Tip: Run the tool from it's folder"
    exit 1
  }
+ gTOP=$(pwd)
 }
 
 
