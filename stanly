@@ -47,7 +47,7 @@ sparse_check()
 {
   local cmd="make C=1 CHECK=\"$(which sparse)\""
   mkclean -q
-  wecho "${cmd}"
+  wecho "sparse: ${cmd}"
   eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' failed"
 }
 
@@ -59,11 +59,11 @@ gccwarn1_check()
   eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' failed"
 }
 
+# usually overkill
 gccwarn12_check()
 {
   local cmd="make W=12"
   mkclean -q
-  # usually overkill
   wecho "gcc : ${cmd} 'possibly useful warnings'"
   eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' failed"
 }
@@ -71,17 +71,18 @@ gccwarn12_check()
 clang_check()
 {
   local cmd="make -skj20 CC=$(which clang)"
+   # make: -s=silent, -k=keep-going, -j# of jobs
   mkclean -q
-  wecho "${cmd}"
+  wecho "clang: ${cmd}"
   eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' failed"
 }
 
 coccinelle_check()
 {
+  # use '-v' parameter for verbose mode
   local cmd="${gTOP}/coccichk ."
   mkclean -q
-  # use '-v' parameter for verbose mode
-  wecho "${cmd}"
+  wecho "coccinelle: ${cmd}"
   eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' failed"
 }
 
@@ -90,7 +91,7 @@ smatch_check()
  # Ref: http://smatch.sourceforge.net/
   local cmd="make CHECK=\"${gSMATCH_LOC}/smatch -p=kernel\" C=1"
   mkclean -q
-  wecho "${cmd}"
+  wecho "smatch: ${cmd}"
   eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' failed"
 }
 
@@ -105,6 +106,13 @@ scan-build_check()
   eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' failed"
 }
 
+flawfinder_check()
+{
+  mkclean -q
+  local cmd="flawfinder --quiet *.[ch]"
+  wecho "${cmd}"
+  eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' failed"
+}
 
 check_folder()
 {
@@ -129,6 +137,8 @@ check_folder()
   coccinelle_check
   echo
   smatch_check
+  echo
+  flawfinder_check
   )
 }
 
@@ -163,6 +173,10 @@ tools_check()
    exit 1
  }
  gTOP=$(pwd)
+ which flawfinder >/dev/null || {
+   echo "${name}: 'flawfinder' missing, pl install"
+   exit 1
+ }
 }
 
 
