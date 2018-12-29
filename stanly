@@ -36,10 +36,11 @@ Warn()
   echo "$@"
 }
 
+# $1 : -q => quiet mode
 mkclean()
 {
   local cmd="make clean"
-  [ "$1" != "-q" ] && wecho "${cmd}"
+  [ "$1" != "-q" ] && becho "[+] ${cmd}"
   eval "${cmd}" > /dev/null || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' failed"
 }
 
@@ -47,7 +48,7 @@ sparse_check()
 {
   local cmd="make C=1 CHECK=\"$(which sparse)\""
   mkclean -q
-  wecho "sparse: ${cmd}"
+  becho "[+] sparse: ${cmd}"
   eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' failed"
 }
 
@@ -55,7 +56,7 @@ gccwarn1_check()
 {
   local cmd="make W=1"
   mkclean -q
-  wecho "gcc : ${cmd} 'generally useful warnings'"
+  becho "[+] gcc : ${cmd} 'generally useful warnings'"
   eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' failed"
 }
 
@@ -64,7 +65,7 @@ gccwarn12_check()
 {
   local cmd="make W=12"
   mkclean -q
-  wecho "gcc : ${cmd} 'possibly useful warnings'"
+  becho "[+] gcc : ${cmd} 'possibly useful warnings'"
   eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' failed"
 }
 
@@ -73,16 +74,17 @@ clang_check()
   local cmd="make -skj20 CC=$(which clang)"
    # make: -s=silent, -k=keep-going, -j# of jobs
   mkclean -q
-  wecho "clang: ${cmd}"
+  becho "[+] clang: ${cmd}"
   eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' failed"
 }
 
+# $1 : -v => verbose mode
 coccinelle_check()
 {
   # use '-v' parameter for verbose mode
   local cmd="${gTOP}/coccichk ."
   mkclean -q
-  wecho "coccinelle: ${cmd}"
+  becho "[+] coccinelle: ${cmd}"
   eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' failed"
 }
 
@@ -91,18 +93,18 @@ smatch_check()
  # Ref: http://smatch.sourceforge.net/
   local cmd="make CHECK=\"${gSMATCH_LOC}/smatch -p=kernel\" C=1"
   mkclean -q
-  wecho "smatch: ${cmd}"
+  becho "[+] smatch: ${cmd}"
   eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' failed"
 }
 
-# Not working ok; fails with:
+# TODO : Not working ok; fails with:
 #  "cc1: error: code model kernel does not support PIC mode" ??
 scan-build_check()
 {
  # Ref: https://clang-analyzer.llvm.org/scan-build.html
   mkclean -q
   local cmd="scan-build -v --use-analyzer=/usr/bin/gcc make"
-  wecho "${cmd}"
+  becho "[+] ${cmd}"
   eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' failed"
 }
 
@@ -110,7 +112,10 @@ flawfinder_check()
 {
   mkclean -q
   local cmd="flawfinder --quiet *.[ch]"
-  wecho "${cmd}"
+  becho "[+] ${cmd}"
+  eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' failed"
+}
+
 # $1 : -q => quiet mode
 cppcheck_check()
 {
@@ -126,7 +131,7 @@ check_folder()
   # in a sub-shell
   (   
   cd $1
-  techo "$(pwd)"
+  wecho "$(pwd)"
   mkclean -q
   ls -l | sed '1d'
   echo
@@ -146,6 +151,8 @@ check_folder()
   smatch_check
   echo
   flawfinder_check
+  echo
+  cppcheck_check -q
   )
 }
 
