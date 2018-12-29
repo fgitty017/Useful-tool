@@ -158,9 +158,12 @@ for d in $(find ${gSRC} -type d \
  -not -path "*.git*" -not -path "*.tmp_versions" -not -path "*tools")
 do
   #echo "In $d:"
-  [ ! -f $d/Makefile ] && continue
-  becho "------------------------------------------------"
-  date
+  [ ! -f $d/Makefile ] && {
+    aecho "[!] Skipping '$d', no Makefile..."
+    continue
+  }
+  echo "-----------------------------------------------------------"
+  wecho "$(date)"
   check_folder $d
   echo
 done
