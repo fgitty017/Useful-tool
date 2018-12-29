@@ -111,6 +111,13 @@ flawfinder_check()
   mkclean -q
   local cmd="flawfinder --quiet *.[ch]"
   wecho "${cmd}"
+# $1 : -q => quiet mode
+cppcheck_check()
+{
+  mkclean -q
+  local cmd="cppcheck -v ."
+  [ "$1" = "-q" ] && cmd="cppcheck -q -v ."
+  becho "[+] ${cmd}"
   eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' failed"
 }
 
@@ -175,6 +182,10 @@ tools_check()
  gTOP=$(pwd)
  which flawfinder >/dev/null || {
    echo "${name}: 'flawfinder' missing, pl install"
+   exit 1
+ }
+ which cppcheck >/dev/null || {
+   echo "${name}: 'cppcheck' missing, pl install"
    exit 1
  }
 }
