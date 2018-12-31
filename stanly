@@ -96,13 +96,17 @@ clang_check()
   eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' failed"
 }
 
+# Uses a wrapper script 'coccichk'
+# We expect our 'coccichk' script to be in the PATH
+# (curr, it's here: /usr/local/bin/coccichk)
 # $1 : -v => verbose mode
 coccinelle_check()
 {
   # use '-v' parameter for verbose mode
-  local cmd="${gTOP}/coccichk ."
+  local cmd="coccichk ."
   mkclean -q
   becho "[+] coccinelle: ${cmd}"
+  echo "pwd = $(pwd) PFX=${PFX}"
   eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' failed"
 }
 
@@ -207,12 +211,10 @@ tools_check()
    echo "${name}: 'sparse' missing, pl install"
    exit 1
  }
- [ ! -f ./coccichk ] && {
-   echo "${name}: 'coccichk' helper script missing
- Tip: Run the tool from it's folder"
+ which coccichk >/dev/null || {
+   echo "${name}: (local) 'coccichk' wrapper script missing, pl install"
    exit 1
  }
- gTOP=$(pwd)
  which flawfinder >/dev/null || {
    echo "${name}: 'flawfinder' missing, pl install"
    exit 1
