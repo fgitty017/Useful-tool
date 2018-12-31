@@ -180,6 +180,11 @@ unset IFS; set +f
 
 tools_check()
 {
+ becho "[+] Checking tools availability..."
+ which gcc >/dev/null || {
+   echo "${name}: 'gcc' missing, pl install"
+   exit 1
+ }
  which sparse >/dev/null || {
    echo "${name}: 'sparse' missing, pl install"
    exit 1
@@ -198,6 +203,7 @@ tools_check()
    echo "${name}: 'cppcheck' missing, pl install"
    exit 1
  }
+ echo " [.] OK"
 }
 
 
@@ -212,6 +218,7 @@ tools_check()
   exit 1
 }
 
+techo "<<<<<<<<<<<<<<<< ${name} : a static analysis tool integrator >>>>>>>>>>>>>>>>"
 tools_check
 start $1
 
