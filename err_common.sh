@@ -11,8 +11,21 @@
 export TOPDIR=$(pwd)
 export VERBOSE_MSG=0
 export DEBUG=0
+
 # Replace with log filename
-export LOGFILE_COMMON=/dev/null 
+#export LOGFILE_COMMON=/dev/null 
+#export LOGFILE_COMMON=${TOPDIR}/results_$(date +%a_%d_%m_%Y_%H%M).txt
+# If logfile exists, back it up, else create it
+export LOGFILE_COMMON=${TOPDIR}/results.txt
+[ "${LOGFILE_COMMON}" != "/dev/null" ] && {
+  if [ -f ${LOGFILE_COMMON} ] ; then
+    cp -f ${LOGFILE_COMMON} ${LOGFILE_COMMON}.bkp
+  else
+    touch ${LOGFILE_COMMON}
+  fi
+  echo "[.] Logging to file ${LOGFILE_COMMON}"
+}
+
 export COLOR=1
 
 #--- Icons
@@ -34,15 +47,15 @@ ICON_EXIT=stock_mark   #system-log-out
 #  just prints _this_ script name, line#.]
 QP()
 {
-	_ERR_HDR_FMT="%.23s %s[%s]: "
-	_ERR_MSG_FMT="${_ERR_HDR_FMT}%s\n"
-    [ ${COLOR} -eq 1 ] && fg_blue
-	printf " QP: $_ERR_MSG_FMT" $(date +%F.%T.%N) " ${BASH_SOURCE[1]##*/}:${FUNCNAME[2]}" |tee -a ${LOGFILE_COMMON}
-	dumpstack
-	#printf " QP: $_ERR_MSG_FMT" $(date +%F.%T.%N) " ${BASH_SOURCE[1]##*/}:${BASH_LINENO[0]}" |tee -a ${LOGFILE_COMMON}
-    [ ${COLOR} -eq 1 ] && color_reset
-	unset _ERR_HDR_FMT
-	unset _ERR_MSG_FMT
+  _ERR_HDR_FMT="%.23s %s[%s]: "
+  _ERR_MSG_FMT="${_ERR_HDR_FMT}%s\n"
+  [ ${COLOR} -eq 1 ] && fg_blue
+  printf " QP: $_ERR_MSG_FMT" $(date +%F.%T.%N) " ${BASH_SOURCE[1]##*/}:${FUNCNAME[2]}" |tee -a ${LOGFILE_COMMON}
+  dumpstack
+  #printf " QP: $_ERR_MSG_FMT" $(date +%F.%T.%N) " ${BASH_SOURCE[1]##*/}:${BASH_LINENO[0]}" |tee -a ${LOGFILE_COMMON}
+  [ ${COLOR} -eq 1 ] && color_reset
+  unset _ERR_HDR_FMT
+  unset _ERR_MSG_FMT
 }
 
 STACK_MAXDEPTH=32  # arbit?
