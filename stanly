@@ -46,6 +46,7 @@ source ${PFX}/common.sh || {
 # UPDATE on your box!
 gKSRC=~/kernel/linux-4.19.4       # kernel source tree root
 gSMATCH_LOC=~/tools_local/smatch  # smatch
+#LOGFILE_COMMON=${PFX}/results_stanly.txt
 
 ########### Functions follow #######################
 
@@ -60,6 +61,14 @@ mkclean()
   local cmd="make clean"
   [ "$1" != "-q" ] && becho "[+] ${cmd}"
   eval "${cmd}" > /dev/null || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' failed"
+}
+
+checkpatch_check()
+{
+  local cmd="${gKSRC}/scripts/checkpatch.pl -f *.[ch]"
+  mkclean -q
+  becho "[+] checkpatch.pl: ${cmd}"
+  eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' failed"
 }
 
 sparse_check()
@@ -150,7 +159,8 @@ cppcheck_check()
 
 check_folder()
 {
-  # in a sub-shell
+  #echo "check_folder(): PFX = ${PFX}"
+  # In a sub-shell
   (   
   cd $1
   wecho "$(pwd)"
@@ -158,6 +168,8 @@ check_folder()
   ls -l | sed '1d'
   echo
 
+  checkpatch_check
+  echo
   sparse_check
   echo
   gccwarn1_check
@@ -227,16 +239,7 @@ tools_check()
 }
 
 
-##### 'main' : execution starts here #####
-
-[ $# -ne 1 ] && {
-  echo "Usage: ${name} path-to-codebase-to-check"
-  exit 1
-}
-[ ! -d $1 ] && {
-  echo "${name}: path-to-codebase-to-check \"$1\" invalid?"
-  exit 1
-}
+##### 'main' #####
 
 techo "<<<<<<<<<<<<<<<< ${name} : a static analysis tool integrator >>>>>>>>>>>>>>>>"
 tools_check
