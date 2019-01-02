@@ -14,9 +14,10 @@
 #  cppcheck
 #
 # TODO ::
-# - report file cleanup
+#  + report file cleanup
 # - Tools curr not working:
 #   - scan-build
+# - make menuconfig interface
 #  
 # Ref: https://elinux.org/images/d/d3/Bargmann.pdf
 # 
@@ -68,7 +69,7 @@ mkclean()
 
 checkpatch_check()
 {
-  local cmd="${gKSRC}/scripts/checkpatch.pl -f *.[ch]"
+  local cmd="${gKSRC}/scripts/checkpatch.pl --no-tree -f *.[ch]"
   mkclean -q
   becho "[+] checkpatch.pl: ${cmd}"
   eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' failed"
@@ -118,7 +119,7 @@ coccinelle_check()
   local cmd="coccichk ."
   mkclean -q
   becho "[+] coccinelle: ${cmd}"
-  echo "pwd = $(pwd) PFX=${PFX}"
+  echo "On $(pwd)"
   eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' failed"
 }
 
@@ -147,6 +148,7 @@ flawfinder_check()
   mkclean -q
   local cmd="flawfinder --quiet *.[ch]"
   becho "[+] ${cmd}"
+  echo "On $(pwd)"
   eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' failed"
 }
 
@@ -157,6 +159,7 @@ cppcheck_check()
   local cmd="cppcheck -v ."
   [ "$1" = "-q" ] && cmd="cppcheck -q -v ."
   becho "[+] ${cmd}"
+  echo "On $(pwd)"
   eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' failed"
 }
 
@@ -193,6 +196,44 @@ check_folder()
   )
 }
 
+tools_check()
+{
+ becho "[+] Checking tools availability..."
+
+ [ ! -d ${gKSRC} ] && {
+   echo "${name}: kernel source tree / kernel-headers not available? Pl install"
+   exit 1
+ }
+ which gcc >/dev/null || {
+   echo "${name}: 'gcc' missing, pl install"
+   exit 1
+ }
+ which sparse >/dev/null || {
+   echo "${name}: 'sparse' missing, pl install"
+   exit 1
+ }
+ # TODO : 'coccichk' to be installed into /usr/local/bin (or ~/bin) on first run
+ which coccichk >/dev/null || {
+   echo "${name}: (local) 'coccichk' wrapper script missing (or not in PATH), pl install"
+   echo "Tip: sudo cp coccichk /usr/local/bin
+and add /usr/local/bin to the PATH env var"
+   exit 1
+ }
+ [ ! -f ${gSMATCH_LOC}/smatch ] && {
+   echo "${name}: (local) 'smatch' tool missing, pl install"
+   exit 1
+ }
+ which flawfinder >/dev/null || {
+   echo "${name}: 'flawfinder' missing, pl install"
+   exit 1
+ }
+ which cppcheck >/dev/null || {
+   echo "${name}: 'cppcheck' missing, pl install"
+   exit 1
+ }
+ echo " [.] OK"
+}
+
 start()
 {
 gSRC=$1
@@ -213,39 +254,6 @@ do
 done
 
 unset IFS; set +f
-}
-
-tools_check()
-{
- becho "[+] Checking tools availability..."
-
- [ ! -d ${gKSRC} ] && {
-   echo "${name}: kernel source tree / kernel-headers not available? Pl install"
-   exit 1
- }
- which gcc >/dev/null || {
-   echo "${name}: 'gcc' missing, pl install"
-   exit 1
- }
- which sparse >/dev/null || {
-   echo "${name}: 'sparse' missing, pl install"
-   exit 1
- }
- which coccichk >/dev/null || {
-   echo "${name}: (local) 'coccichk' wrapper script missing, pl install"
- [ ! -f ${gSMATCH_LOC}/smatch ] && {
-   echo "${name}: (local) 'smatch' tool missing, pl install"
-   exit 1
- }
- which flawfinder >/dev/null || {
-   echo "${name}: 'flawfinder' missing, pl install"
-   exit 1
- }
- which cppcheck >/dev/null || {
-   echo "${name}: 'cppcheck' missing, pl install"
-   exit 1
- }
- echo " [.] OK"
 }
 
 
