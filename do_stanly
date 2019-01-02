@@ -1,8 +1,9 @@
 #!/bin/bash
-# stanly
+# do_stanly
 #
 # Quick Description:
 # Tooling - static analysis tools integrator script.
+# MUST be invoked via it's wrapper script 'stanly'.
 #
 # Tools we currently invoke on each code sub-directory:
 #  <kernel>/scripts/checkpatch.pl
@@ -30,6 +31,14 @@
 # 
 # License: MIT.
 name=$(basename $0)
+
+PSTAN=stanly
+parent=$(ps -o comm= $PPID)
+[ "${parent}" != "${PSTAN}" ] && {
+  echo "Must run the 'do_stanly' tool via it's wrapper '${PSTAN}' only"
+  echo "(Here and now, the parent is \"${parent}\")"
+  exit 1
+}
 [ $# -ne 1 ] && {
   echo "Usage: ${name} path-to-codebase-to-check"
   exit 1

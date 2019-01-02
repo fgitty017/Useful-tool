@@ -1,5 +1,6 @@
 #!/bin/bash
-# Wrapper over stanly
+# stanly
+# Wrapper over do_stanly
 name=$(basename $0)
 
 # Arg checking
@@ -16,12 +17,12 @@ mkdir -p reports 2>/dev/null
 LOGFILE=reports/results_$(date +%a_%d%b%Y_%H%M)_$(basename $1).txt
 touch ${LOGFILE}
 # Expect the 'stanly' script to be in the PATH
-which stanly >/dev/null || {
+which do_stanly >/dev/null || {
    echo "${name}: we expect our 'stanly' script location to be in the PATH env var.
 Pl update PATH to include it's folder, then retry"
    exit 1
  }
-stanly $1 | tee --append ${LOGFILE}
+do_stanly $1 2>&1 | tee --append ${LOGFILE}
 
 #--- Post process the report file
 sed -i.bkp "/###\:\:\:/d" ${LOGFILE}  # get rid of the signature line
