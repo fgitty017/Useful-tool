@@ -79,7 +79,7 @@ color_reset()
 #--------------------- E c h o ----------------------------------------
 # The _base_ echo/logging function.
 # Parameters:
-# $1        : a tag that speicifies the logging level
+# $1        : a tag that specifies the logging level
 # $2 ... $n : message to echo (to stdout and logfile)
 #
 # Logging Levels (from low->high 'criticality') are:
@@ -138,7 +138,17 @@ Echo()
  local msgpfx2_disp
  [ ${VERBOSE_MSG} -eq 1 ] && msgpfx2_disp="${msgpfx2_log}"
 
- local msgtxt="$@"
+ #--- Logfile appending is likely to be done with (something) like:
+ # ./stanly <...> |tee --append $LOG
+ # The various 'color' echo's create all kinds of extraneous characters
+ # in the output stream which we'd like to post-process to get rid of.
+ # Prefix each *logfile* message with a special signature (so that we
+ # can later get rid of it, via sed(1))
+ local SIGN="###:::
+ " # the newline is IMP!
+ local msgtxt="${SIGN}$@"
+ #---
+
  local msgfull_log="${msgpfx1_log}${msgpfx2_log}${msgtxt}"
  local msg_disp="${msgpfx1_disp}${SEP}${msgtxt}"
  [ ${VERBOSE_MSG} -eq 1 ] && msg_disp="${msgfull_log}"
