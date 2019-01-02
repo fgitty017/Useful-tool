@@ -85,7 +85,7 @@ echo "${gInitMsg}"
 # If a folder passed as $1
 if [ -d $1 ] ; then
   runcocci $1
-  [ "${parent}" = "bash" ] && exit 0 || return 0
+#  [ "${parent}" = "bash" ] && exit 0 || return 0
 fi
 
 # If one or more files are passed, or a wildcard..
@@ -103,4 +103,4 @@ do
   }
   runcocci ${fname}
 done
-[ "${parent}" = "bash" ] && exit 0 || return 0
+#[ "${parent}" = "bash" ] && exit 0 || return 0
