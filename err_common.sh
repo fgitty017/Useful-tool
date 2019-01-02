@@ -13,18 +13,18 @@ export VERBOSE_MSG=0
 export DEBUG=0
 
 # Replace with log filename
-#export LOGFILE_COMMON=/dev/null 
+export LOGFILE_COMMON=/dev/null 
 #export LOGFILE_COMMON=${TOPDIR}/results_$(date +%a_%d_%m_%Y_%H%M).txt
 # If logfile exists, back it up, else create it
-export LOGFILE_COMMON=${TOPDIR}/results.txt
-[ "${LOGFILE_COMMON}" != "/dev/null" ] && {
-  if [ -f ${LOGFILE_COMMON} ] ; then
-    cp -f ${LOGFILE_COMMON} ${LOGFILE_COMMON}.bkp
-  else
-    touch ${LOGFILE_COMMON}
-  fi
-  echo "[.] Logging to file ${LOGFILE_COMMON}"
-}
+#export LOGFILE_COMMON=${TOPDIR}/results.txt
+#[ "${LOGFILE_COMMON}" != "/dev/null" ] && {
+#  if [ -f ${LOGFILE_COMMON} ] ; then
+#    cp -f ${LOGFILE_COMMON} ${LOGFILE_COMMON}.bkp
+#  else
+#    touch ${LOGFILE_COMMON}
+#  fi
+#  echo "[.] Logging to file ${LOGFILE_COMMON}"
+#}
 
 export COLOR=1
 
