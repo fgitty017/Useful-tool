@@ -1,0 +1,266 @@
+#!/bin/bash
+# stanly
+#
+# Quick Description:
+# Tooling - static analysis tools integrator script.
+#
+# Tools we currently invoke on each code sub-directory:
+#  <kernel>/scripts/checkpatch.pl
+#  sparse
+#  gcc : 'useful warnings' -W1
+#  <kernel>/coccinelle, via our wrapper 'coccichk' script
+#  smatch
+#  flawfinder
+#  cppcheck
+#
+# TODO ::
+#  + report file cleanup
+# - Tools curr not working:
+#   - scan-build
+# - make menuconfig interface
+#  
+# Ref: https://elinux.org/images/d/d3/Bargmann.pdf
+# 
+# Last Updated : 31Dec2018
+# Created      : 28Dec2018
+# 
+# Author:
+# (c) Kaiwan N Billimoria
+# kaiwan -at- kaiwantech -dot- com
+# 
+# License: MIT.
+name=$(basename $0)
+[ $# -ne 1 ] && {
+  echo "Usage: ${name} path-to-codebase-to-check"
+  exit 1
+}
+[ ! -d $1 ] && {
+  echo "${name}: path-to-codebase-to-check \"$1\" invalid?"
+  exit 1
+}
+
+PFX=$(dirname $(which $0))    # dir in which 'stanly' and tools reside
+source ${PFX}/common.sh || {
+ echo "${name}: fatal: could not source ${PFX}/common.sh , aborting..."
+ exit 1
+}
+
+########### Globals follow #########################
+# Style: gNameOfGlobalVar
+
+# UPDATE on your box!
+gKSRC=/lib/modules/$(uname -r)/build/   # kernel source tree (kernel-headers)
+gSMATCH_LOC=~/tools_local/smatch        # smatch tool location
+
+########### Functions follow #######################
+
+Warn()
+{
+  echo "$@"
+}
+
+# $1 : -q => quiet mode
+mkclean()
+{
+  local cmd="make clean"
+  [ "$1" != "-q" ] && becho "[+] ${cmd}"
+  eval "${cmd}" > /dev/null || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' failed"
+}
+
+checkpatch_check()
+{
+  local cmd="${gKSRC}/scripts/checkpatch.pl --no-tree -f *.[ch]"
+  mkclean -q
+  becho "[+] checkpatch.pl: ${cmd}"
+  eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' failed"
+}
+
+sparse_check()
+{
+  local cmd="make C=1 CHECK=\"$(which sparse)\""
+  mkclean -q
+  becho "[+] sparse: ${cmd}"
+  eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' failed"
+}
+
+gccwarn1_check()
+{
+  local cmd="make W=1"
+  mkclean -q
+  becho "[+] gcc : ${cmd} 'generally useful warnings'"
+  eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' failed"
+}
+
+# usually overkill
+gccwarn12_check()
+{
+  local cmd="make W=12"
+  mkclean -q
+  becho "[+] gcc : ${cmd} 'possibly useful warnings'"
+  eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' failed"
+}
+
+clang_check()
+{
+  local cmd="make -skj20 CC=$(which clang)"
+   # make: -s=silent, -k=keep-going, -j# of jobs
+  mkclean -q
+  becho "[+] clang: ${cmd}"
+  eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' failed"
+}
+
+# Uses a wrapper script 'coccichk'
+# We expect our 'coccichk' script to be in the PATH
+# (curr, it's here: /usr/local/bin/coccichk)
+# $1 : -v => verbose mode
+coccinelle_check()
+{
+  # use '-v' parameter for verbose mode
+  local cmd="coccichk ."
+  mkclean -q
+  becho "[+] coccinelle: ${cmd}"
+  echo "On $(pwd)"
+  eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' failed"
+}
+
+smatch_check()
+{
+ # Ref: http://smatch.sourceforge.net/
+  local cmd="make CHECK=\"${gSMATCH_LOC}/smatch -p=kernel\" C=1"
+  mkclean -q
+  becho "[+] smatch: ${cmd}"
+  eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' failed"
+}
+
+# TODO : Not working ok; fails with:
+#  "cc1: error: code model kernel does not support PIC mode" ??
+scan-build_check()
+{
+ # Ref: https://clang-analyzer.llvm.org/scan-build.html
+  mkclean -q
+  local cmd="scan-build -v --use-analyzer=/usr/bin/gcc make"
+  becho "[+] ${cmd}"
+  eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' failed"
+}
+
+flawfinder_check()
+{
+  mkclean -q
+  local cmd="flawfinder --quiet *.[ch]"
+  becho "[+] ${cmd}"
+  echo "On $(pwd)"
+  eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' failed"
+}
+
+# $1 : -q => quiet mode
+cppcheck_check()
+{
+  mkclean -q
+  local cmd="cppcheck -v ."
+  [ "$1" = "-q" ] && cmd="cppcheck -q -v ."
+  becho "[+] ${cmd}"
+  echo "On $(pwd)"
+  eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' failed"
+}
+
+check_folder()
+{
+  #echo "check_folder(): PFX = ${PFX}"
+  # In a sub-shell
+  (   
+  cd $1
+  wecho "$(pwd)"
+  mkclean -q
+  ls -l | sed '1d'
+  echo
+
+  checkpatch_check
+  echo
+  sparse_check
+  echo
+  gccwarn1_check
+  #echo
+  #gccwarn12_check   # overkill
+  #echo
+  #clang_check
+  #echo
+  #scan-build_check
+  echo
+  coccinelle_check
+  echo
+  smatch_check
+  echo
+  flawfinder_check
+  echo
+  cppcheck_check -q
+  )
+}
+
+tools_check()
+{
+ becho "[+] Checking tools availability..."
+
+ [ ! -d ${gKSRC} ] && {
+   echo "${name}: kernel source tree / kernel-headers not available? Pl install"
+   exit 1
+ }
+ which gcc >/dev/null || {
+   echo "${name}: 'gcc' missing, pl install"
+   exit 1
+ }
+ which sparse >/dev/null || {
+   echo "${name}: 'sparse' missing, pl install"
+   exit 1
+ }
+ # TODO : 'coccichk' to be installed into /usr/local/bin (or ~/bin) on first run
+ which coccichk >/dev/null || {
+   echo "${name}: (local) 'coccichk' wrapper script missing (or not in PATH), pl install"
+   echo "Tip: sudo cp coccichk /usr/local/bin
+and add /usr/local/bin to the PATH env var"
+   exit 1
+ }
+ [ ! -f ${gSMATCH_LOC}/smatch ] && {
+   echo "${name}: (local) 'smatch' tool missing, pl install"
+   exit 1
+ }
+ which flawfinder >/dev/null || {
+   echo "${name}: 'flawfinder' missing, pl install"
+   exit 1
+ }
+ which cppcheck >/dev/null || {
+   echo "${name}: 'cppcheck' missing, pl install"
+   exit 1
+ }
+ echo " [.] OK"
+}
+
+start()
+{
+gSRC=$1
+
+IFS=$'\n'; set -f
+for d in $(find ${gSRC} -type d \
+ -not -path "*.git*" -not -path "*.tmp_versions" -not -path "*tools")
+do
+  #echo "In $d:"
+  [ ! -f $d/Makefile ] && {
+    aecho "[!] Skipping '$d', no Makefile..."
+    continue
+  }
+  echo "-----------------------------------------------------------"
+  wecho "$(date)"
+  check_folder $d
+  echo
+done
+
+unset IFS; set +f
+}
+
+
+##### 'main' #####
+
+techo "<<<<<<<<<<<<<<<< ${name} : a static analysis tool integrator >>>>>>>>>>>>>>>>"
+tools_check
+start $1
+
+exit 0
