@@ -3,6 +3,27 @@
 # Wrapper over do_stanly
 name=$(basename $0)
 
+# logfile_post_process
+# Issue: using the 'color' routines (like wecho, aecho, techo, etc) causes
+# escape chars to get embedded into the logfile. This addresses how to get
+# rid of the color escape sequences.
+# $1 : logfile
+logfile_post_process()
+{
+sed -i.bkp "/###\:\:\:/d" ${1}  # take a backup & get rid of the signature line
+sed -i "s/\x1b.....//g" ${1}    # get rid of the ^[(B^[[m characters !
+      # '\x1b' is ESC ! Find it, and then delete it and the following 5 chars
+      # (the five .'s that follow specify this)
+sed -i '$ d' ${1}               # delete last line
+}
+
+# Expect the 'stanly' script to be in the PATH
+which do_stanly >/dev/null || {
+   echo "${name}: we expect our 'stanly' script location to be in the PATH env var.
+Pl update PATH to include it's folder, then retry"
+   exit 1
+ }
+
 # Arg checking
 [ $# -ne 1 ] && {
   echo "Usage: ${name} path-to-codebase-to-check"
@@ -13,23 +34,13 @@ name=$(basename $0)
   exit 1
 }
 
-mkdir -p reports 2>/dev/null
-LOGFILE=reports/results_$(date +%a_%d%b%Y_%H%M)_$(basename $1).txt
-touch ${LOGFILE}
-# Expect the 'stanly' script to be in the PATH
-which do_stanly >/dev/null || {
-   echo "${name}: we expect our 'stanly' script location to be in the PATH env var.
-Pl update PATH to include it's folder, then retry"
-   exit 1
- }
+LOGDIR=stanly_reports
+mkdir -p ${LOGDIR} 2>/dev/null
+LOGFILE=${LOGDIR}/results_$(date +%a_%d%b%Y_%H%M)_$(basename $1).txt
+touch ${LOGFILE} || exit 1  # perm?
+
 do_stanly $1 2>&1 | tee --append ${LOGFILE}
+logfile_post_process ${LOGFILE}
 
-#--- Post process the report file
-sed -i.bkp "/###\:\:\:/d" ${LOGFILE}  # get rid of the signature line
-sed -i "s/\x1b.....//g" ${LOGFILE}  # get rid of the ^[(B^[[m characters !
-      # '\x1b' is ESC ! Find it, and then delete it and the following 5 chars
-      # (the five .'s that follow specify this)
-sed -i '$ d' ${LOGFILE}               # delete last line
-
-echo "stanly is done, report here:"
+echo "${name}: am done, report here:"
 ls -lh ${LOGFILE}
