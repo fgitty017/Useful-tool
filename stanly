@@ -48,8 +48,8 @@ source ${PFX}/common.sh || {
 # Style: gNameOfGlobalVar
 
 # UPDATE on your box!
-gKSRC=~/kernel/linux-4.19.4       # kernel source tree root
-gSMATCH_LOC=~/tools_local/smatch  # smatch
+gKSRC=/lib/modules/$(uname -r)/build/   # kernel source tree (kernel-headers)
+gSMATCH_LOC=~/tools_local/smatch        # smatch tool location
 
 ########### Functions follow #######################
 
@@ -218,6 +218,11 @@ unset IFS; set +f
 tools_check()
 {
  becho "[+] Checking tools availability..."
+
+ [ ! -d ${gKSRC} ] && {
+   echo "${name}: kernel source tree / kernel-headers not available? Pl install"
+   exit 1
+ }
  which gcc >/dev/null || {
    echo "${name}: 'gcc' missing, pl install"
    exit 1
@@ -228,6 +233,8 @@ tools_check()
  }
  which coccichk >/dev/null || {
    echo "${name}: (local) 'coccichk' wrapper script missing, pl install"
+ [ ! -f ${gSMATCH_LOC}/smatch ] && {
+   echo "${name}: (local) 'smatch' tool missing, pl install"
    exit 1
  }
  which flawfinder >/dev/null || {
