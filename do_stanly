@@ -172,6 +172,7 @@ cppcheck_check()
   eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' failed"
 }
 
+# $1 : code folder to check
 check_folder()
 {
   #echo "check_folder(): PFX = ${PFX}"
@@ -190,8 +191,8 @@ check_folder()
   gccwarn1_check
   #echo
   #gccwarn12_check   # overkill
-  #echo
-  #clang_check
+  echo
+  clang_check
   #echo
   #scan-build_check
   echo
@@ -215,6 +216,10 @@ tools_check()
  }
  which gcc >/dev/null || {
    echo "${name}: 'gcc' missing, pl install"
+   exit 1
+ }
+ which clang >/dev/null || {
+   echo "${name}: 'clang' missing, pl install"
    exit 1
  }
  which sparse >/dev/null || {
@@ -271,5 +276,5 @@ unset IFS; set +f
 techo "<<<<<<<<<<<<<<<< ${name} : a static analysis tool integrator >>>>>>>>>>>>>>>>"
 tools_check
 start $1
-
+echo "|- End Run : $(date) -|"
 exit 0
