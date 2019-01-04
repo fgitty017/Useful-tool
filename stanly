@@ -14,7 +14,6 @@ sed -i.bkp "/###\:\:\:/d" ${1}  # take a backup & get rid of the signature line
 sed -i "s/\x1b.....//g" ${1}    # get rid of the ^[(B^[[m characters !
       # '\x1b' is ESC ! Find it, and then delete it and the following 5 chars
       # (the five .'s that follow specify this)
-sed -i '$ d' ${1}               # delete last line
 }
 
 # Expect the 'stanly' script to be in the PATH
@@ -39,8 +38,9 @@ mkdir -p ${LOGDIR} 2>/dev/null
 LOGFILE=${LOGDIR}/results_$(date +%a_%d%b%Y_%H%M)_$(basename $1).txt
 touch ${LOGFILE} || exit 1  # perm?
 
+echo "${name}:$(date) : logging to ${LOGFILE}"
 do_stanly $1 2>&1 | tee --append ${LOGFILE}
 logfile_post_process ${LOGFILE}
 
-echo "${name}: am done, report here:"
+echo "${name}: am done, report / log here:"
 ls -lh ${LOGFILE}
