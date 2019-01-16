@@ -65,7 +65,7 @@ gSMATCH_LOC=~/tools_local/smatch        # smatch tool location
 
 Warn()
 {
-  echo "$@"
+  wecho "$@"
 }
 
 # $1 : -q => quiet mode
@@ -228,6 +228,12 @@ tools_check()
    echo "${name}: 'sparse' missing, pl install"
    exit 1
  }
+
+ # Coccinelle
+ which spatch >/dev/null || {
+   echo "${name}: 'spatch' missing, pl install the 'coccinelle' package"
+   exit 1
+ }
  # TODO : 'coccichk' to be installed into /usr/local/bin (or ~/bin) on first run
  which coccichk >/dev/null || {
    echo "${name}: (local) <...>/stanly/coccichk wrapper script missing (or not in PATH), pl install"
@@ -235,12 +241,14 @@ tools_check()
 and add /usr/local/bin to the PATH env var"
    exit 1
  }
+
  SKIP_SMATCH=0
  [ ! -f ${gSMATCH_LOC}/smatch ] && {
    Warn "${name}: (local) 'smatch' tool missing, pl install;
  [smatch-check() will be skipped]"
    SKIP_SMATCH=1
  }
+
  which flawfinder >/dev/null || {
    echo "${name}: 'flawfinder' missing, pl install"
    exit 1
