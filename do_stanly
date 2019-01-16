@@ -198,8 +198,10 @@ check_folder()
   echo
   coccinelle_check
   echo
-  smatch_check
-  echo
+  [ ${SKIP_SMATCH} -eq 0 ] && {
+    smatch_check
+    echo
+  }
   flawfinder_check
   echo
   cppcheck_check -q
@@ -228,14 +230,16 @@ tools_check()
  }
  # TODO : 'coccichk' to be installed into /usr/local/bin (or ~/bin) on first run
  which coccichk >/dev/null || {
-   echo "${name}: (local) 'coccichk' wrapper script missing (or not in PATH), pl install"
-   echo "Tip: sudo cp coccichk /usr/local/bin
+   echo "${name}: (local) <...>/stanly/coccichk wrapper script missing (or not in PATH), pl install"
+   echo "Tip: sudo cp <...>/stanly/coccichk /usr/local/bin
 and add /usr/local/bin to the PATH env var"
    exit 1
  }
+ SKIP_SMATCH=0
  [ ! -f ${gSMATCH_LOC}/smatch ] && {
-   echo "${name}: (local) 'smatch' tool missing, pl install"
-   exit 1
+   Warn "${name}: (local) 'smatch' tool missing, pl install;
+ [smatch-check() will be skipped]"
+   SKIP_SMATCH=1
  }
  which flawfinder >/dev/null || {
    echo "${name}: 'flawfinder' missing, pl install"
