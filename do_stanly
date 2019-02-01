@@ -39,20 +39,6 @@ parent=$(ps -o comm= $PPID)
   echo "(Here and now, the parent is \"${parent}\")"
   exit 1
 }
-[ $# -ne 1 ] && {
-  echo "Usage: ${name} path-to-codebase-to-check"
-  exit 1
-}
-[ ! -d $1 ] && {
-  echo "${name}: path-to-codebase-to-check \"$1\" invalid?"
-  exit 1
-}
-
-PFX=$(dirname $(which $0))    # dir in which 'stanly' and tools reside
-source ${PFX}/common.sh || {
- echo "${name}: fatal: could not source ${PFX}/common.sh , aborting..."
- exit 1
-}
 
 ########### Globals / Configs follow #########################
 # Style: gNameOfGlobalVar
@@ -66,7 +52,7 @@ gSMATCH_LOC=~/tools_local/smatch        # smatch tool location
 
 Warn()
 {
-  wecho "$@"
+  wecho "WARNING! $@"
 }
 
 # $1 : -q => quiet mode
@@ -290,7 +276,7 @@ gSRC=$1
 
 IFS=$'\n'; set -f
 for d in $(find ${gSRC} -type d \
- -not -path "*.git*" -not -path "*.tmp_versions" -not -path "*tools")
+ -not -path "*.git*" -not -path "*.tmp_versions" -not -path "*tools") # RELOOK: why not 'tools*'?
 do
   #echo "In $d:"
   [ ! -f $d/Makefile ] && {
@@ -309,8 +295,14 @@ unset IFS; set +f
 
 ##### 'main' #####
 
-techo "<<<<<<<<<<<<<<<< ${name} : a static analysis tool integrator >>>>>>>>>>>>>>>>"
+PFX=$(dirname $(which $0))    # dir in which 'stanly' and tools reside
+source ${PFX}/common.sh || {
+ echo "${name}: fatal: could not source ${PFX}/common.sh , aborting..."
+ exit 1
+}
+
+techo "<<<<<<<<<<<<<<<< stanly : a static analysis tool integrator >>>>>>>>>>>>>>>>"
+KMODE=$2   # passed from our 'stanly' wrapper
 tools_check
-start $1
+start ${1}
 echo "|- End Run : $(date) -|"
-exit 0

@@ -2,6 +2,31 @@
 # stanly
 # Wrapper over do_stanly
 name=$(basename $0)
+PFX=$(dirname $(which $0))    # dir in which 'stanly' and tools reside
+source ${PFX}/common.sh || {
+ echo "${name}: fatal: could not source ${PFX}/common.sh , aborting..."
+ exit 1
+}
+
+export DEBUG=0
+
+exit_handler()
+{
+ logfile_post_process ${LOGFILE}
+ becho "${name}: am done, report / log here:"
+ ls -lh ${LOGFILE}
+ exit $1
+}
+trap 'exit_func' SIGINT SIGQUIT SIGTERM
+
+help()
+{
+  cat << @EOM@
+Usage: ${name} [-k] path-to-codebase-to-check
+  -k : the codebase (2nd param) is a Linux kernel source tree [optional]
+  If -k is not passed, we assume the codebase is kernel module source.
+@EOM@
+}
 
 # logfile_post_process
 # Issue: using the 'color' routines (like wecho, aecho, techo, etc) causes
@@ -16,31 +41,93 @@ sed -i "s/\x1b.....//g" ${1}    # get rid of the ^[(B^[[m characters !
       # (the five .'s that follow specify this)
 }
 
+# Parameter:
+#  $1 : the kernel src tree pathname
+# 'Returns' 0 on success, 1 on failure
+check_ksrc_tree()
+{
+# Find the kernel source tree 'root'
+#export found=0
+
+# In a sub-shell ...
+(
+local TMP=/tmp/.ksrc_dirs_$$
+local found=0 climbed_up=1 numdirs=0
+local DIRS2MATCH="arch|block|crypto|Documentation|drivers|fs|init|ipc|kernel|lib|mm|net|samples|scripts|security|sound|virt"
+
+cd ${1} || FatalError "Folder \"${SRC}\" invalid? cd failed..."
+# look for these 17 dirs under the kernel src tree root
+while [ ${climbed_up} -le 16 ]
+do
+  #pwd
+  find . -type d -maxdepth 1 2>/dev/null > ${TMP}
+  numdirs=$(egrep "${DIRS2MATCH}" ${TMP} |wc -l)
+  #echo "numdirs = ${numdirs}"
+  if [ ${numdirs} -ne 17 ] ; then
+    cd ..
+  else
+    found=1
+    break
+  fi
+  let climbed_up=climbed_up+1
+done
+
+decho "found? ${found} climbed_up=${climbed_up}"
+rm -f ${TMP}
+[ ${found} -eq 1 ] && return 0 || return 1
+) # sub-shell
+}
+
+
 # Expect the 'stanly' script to be in the PATH
 which do_stanly >/dev/null || {
    echo "${name}: we expect our 'stanly' script location to be in the PATH env var.
 Pl update PATH to include it's folder, then retry"
-   exit 1
+   return 1
  }
 
 # Arg checking
-[ $# -ne 1 ] && {
-  echo "Usage: ${name} path-to-codebase-to-check"
+[ $# -eq 0 ] && {
+  help
   exit 1
 }
-[ ! -d $1 ] && {
-  echo "${name}: path-to-codebase-to-check \"$1\" invalid?"
+SRC=$1
+KMODE=0   # is it a kernel source tree?
+[ $# -eq 2 -a "$1" != "-k" ] && {
+    help
+    exit 1
+}
+[ $# -eq 2 ] && {  # kernel src tree
+  SRC=$2
+  KMODE=1
+}
+[ ! -d ${SRC} ] && {
+  echo "${name}: path-to-codebase-to-check \"${SRC}\" invalid?"
   exit 1
+}
+
+decho "SRC = ${SRC} KMODE=${KMODE}"
+echo -n "${name}: running in "
+[ ${KMODE} -eq 0 ] && echo "*kernel-module* mode..." || echo "*kernel source tree* mode..."
+
+# If kernel, verify it's actually a, or within a, kernel src tree
+[ ${KMODE} -eq 1 ] && {
+  echo -n "[.] Verifying if kernel source tree ..."
+  check_ksrc_tree ${SRC}
+  [ $? -ne 0 ] && {
+    echo "${name}: the codebase folder \"${SRC}\" does NOT appear to be 
+a Linux kernel source tree, or a folder within it. Aborting ..."
+    exit 1
+  }
+  echo "   [+] verified"
 }
 
 LOGDIR=stanly_reports
-mkdir -p ${LOGDIR} 2>/dev/null
-LOGFILE=${LOGDIR}/results_$(date +%a_%d%b%Y_%H%M)_$(basename $1).txt
+mkdir -p ${LOGDIR} || FatalError "Could not create log folder; permissions?"
+LOGFILE=${LOGDIR}/results_$(date +%a_%d%b%Y_%H%M)_$(basename ${SRC}).txt
 touch ${LOGFILE} || exit 1  # perm?
 
-echo "${name}:$(date) : logging to ${LOGFILE}"
-do_stanly $1 2>&1 | tee --append ${LOGFILE}
-logfile_post_process ${LOGFILE}
-
-echo "${name}: am done, report / log here:"
-ls -lh ${LOGFILE}
+becho "${name}:$(date) : logging to ${LOGFILE}"
+do_stanly ${SRC} ${KMODE} 2>&1 | tee --append ${LOGFILE}
+exit_handler 0
+exit 0
