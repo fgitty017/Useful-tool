@@ -22,7 +22,7 @@
 #  
 # Ref: https://elinux.org/images/d/d3/Bargmann.pdf
 # 
-# Last Updated : 31Dec2018
+# Last Updated : 01Feb2019
 # Created      : 28Dec2018
 # 
 # Author:
@@ -54,11 +54,12 @@ source ${PFX}/common.sh || {
  exit 1
 }
 
-########### Globals follow #########################
+########### Globals / Configs follow #########################
 # Style: gNameOfGlobalVar
 
 # UPDATE on your box!
 gKSRC=/lib/modules/$(uname -r)/build/   # kernel source tree (kernel-headers)
+#gKSRC=~/kernel/linux-4.19.4/
 gSMATCH_LOC=~/tools_local/smatch        # smatch tool location
 
 ########### Functions follow #######################
@@ -81,6 +82,7 @@ checkpatch_check()
   local cmd="${gKSRC}/scripts/checkpatch.pl --no-tree -f *.[ch]"
   mkclean -q
   becho "[+] checkpatch.pl: ${cmd}"
+  echo " cmd = $cmd"
   eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' failed"
 }
 
@@ -170,12 +172,26 @@ cppcheck_check()
   becho "[+] ${cmd}"
   echo "On $(pwd)"
   eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' failed"
+  mkclean -q
+}
+
+# Another way to find defects- cross-compile the code for another arch!
+# Here, for PPC64
+xcc_test()
+{
+  mkclean -q
+  local cmd="make ARCH=powerpc CROSS_COMPILE=powerpc64-linux-"
+  [ "$1" = "-v" ] && cmd="make V=1 ARCH=powerpc CROSS_COMPILE=powerpc64-linux-"
+  becho "[+] ${cmd}"
+  #echo "On $(pwd)"
+  eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' failed"
+  mkclean -q
 }
 
 # $1 : code folder to check
-check_folder()
+run_checkers()
 {
-  #echo "check_folder(): PFX = ${PFX}"
+  #echo "run_checkers(): PFX = ${PFX}"
   # In a sub-shell
   (   
   cd $1
@@ -205,7 +221,9 @@ check_folder()
   flawfinder_check
   echo
   cppcheck_check -q
-  )
+  echo
+  [ ${SKIP_XCC} -eq 0 ] && xcc_test
+  ) # sub-shell end
 }
 
 tools_check()
@@ -257,6 +275,12 @@ and add /usr/local/bin to the PATH env var"
    echo "${name}: 'cppcheck' missing, pl install"
    exit 1
  }
+
+ SKIP_XCC=0
+ which powerpc64-linux-gcc >/dev/null || {
+   Warn "${name}: 'powerpc64-linux-gcc' missing, pl install PPC64 cross-compiler"
+   SKIP_XCC=1
+ }
  echo " [.] OK"
 }
 
@@ -275,7 +299,7 @@ do
   }
   echo "-----------------------------------------------------------"
   wecho "$(date)"
-  check_folder $d
+  run_checkers $d
   echo
 done
 
