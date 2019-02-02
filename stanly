@@ -15,7 +15,7 @@ exit_handler()
  logfile_post_process ${LOGFILE}
  becho "${name}: am done, report / log here:"
  ls -lh ${LOGFILE}
- exit $1
+ [ $# -eq 1 ] && exit $1 || exit 1
 }
 trap 'exit_func' SIGINT SIGQUIT SIGTERM
 
@@ -49,10 +49,13 @@ check_ksrc_tree()
 # Find the kernel source tree 'root'
 #export found=0
 
+pushd $(pwd) >/dev/null
+
 # In a sub-shell ...
-(
+#(
 local TMP=/tmp/.ksrc_dirs_$$
 local found=0 climbed_up=1 numdirs=0
+# Careful! look for these 17 dirs under the kernel src tree root
 local DIRS2MATCH="arch|block|crypto|Documentation|drivers|fs|init|ipc|kernel|lib|mm|net|samples|scripts|security|sound|virt"
 
 cd ${1} || FatalError "Folder \"${SRC}\" invalid? cd failed..."
@@ -67,15 +70,20 @@ do
     cd ..
   else
     found=1
+    export KTREEROOT=$(pwd)
     break
   fi
   let climbed_up=climbed_up+1
 done
 
-decho "found? ${found} climbed_up=${climbed_up}"
+decho "found? ${found} here: ${KTREEROOT}; climbed_up=${climbed_up}"
 rm -f ${TMP}
-[ ${found} -eq 1 ] && return 0 || return 1
-) # sub-shell
+[ ${found} -eq 1 ] && {
+  popd; return 0 
+} || {
+  popd; return 1
+}
+#) # sub-shell
 }
 
 
@@ -92,35 +100,38 @@ Pl update PATH to include it's folder, then retry"
   exit 1
 }
 SRC=$1
-KMODE=0   # is it a kernel source tree?
+KSRCTREE=0   # is it a kernel source tree?
 [ $# -eq 2 -a "$1" != "-k" ] && {
     help
     exit 1
 }
 [ $# -eq 2 ] && {  # kernel src tree
   SRC=$2
-  KMODE=1
+  KSRCTREE=1
 }
 [ ! -d ${SRC} ] && {
   echo "${name}: path-to-codebase-to-check \"${SRC}\" invalid?"
   exit 1
 }
 
-decho "SRC = ${SRC} KMODE=${KMODE}"
+decho "SRC = ${SRC} KSRCTREE=${KSRCTREE}"
 echo -n "${name}: running in "
-[ ${KMODE} -eq 0 ] && echo "*kernel-module* mode..." || echo "*kernel source tree* mode..."
+[ ${KSRCTREE} -eq 0 ] && echo "*kernel-module* mode..." || echo "*kernel source tree* mode..."
 
-# If kernel, verify it's actually a, or within a, kernel src tree
-[ ${KMODE} -eq 1 ] && {
-  echo -n "[.] Verifying if kernel source tree ..."
-  check_ksrc_tree ${SRC}
-  [ $? -ne 0 ] && {
+echo -n "[.] Verifying if kernel source tree ..."
+check_ksrc_tree ${SRC}
+stat=$?
+# If -k passed, verify it's actually a, or within a, kernel src tree
+if [ ${KSRCTREE} -eq 1 -a ${stat} -ne 0 ]; then
     echo "${name}: the codebase folder \"${SRC}\" does NOT appear to be 
 a Linux kernel source tree, or a folder within it. Aborting ..."
     exit 1
-  }
-  echo "   [+] verified"
-}
+elif [ ${KSRCTREE} -eq 0 -a ${stat} -eq 0 ]; then
+    echo "${name}: the codebase folder \"${SRC}\" DOES appear to be 
+a Linux kernel source tree, or a folder within it. You must pass the option -k."
+    exit 1
+fi
+echo "   [+] verified"
 
 LOGDIR=stanly_reports
 mkdir -p ${LOGDIR} || FatalError "Could not create log folder; permissions?"
@@ -128,6 +139,6 @@ LOGFILE=${LOGDIR}/results_$(date +%a_%d%b%Y_%H%M)_$(basename ${SRC}).txt
 touch ${LOGFILE} || exit 1  # perm?
 
 becho "${name}:$(date) : logging to ${LOGFILE}"
-do_stanly ${SRC} ${KMODE} 2>&1 | tee --append ${LOGFILE}
+do_stanly ${SRC} ${KSRCTREE} ${KTREEROOT} 2>&1 | tee --append ${LOGFILE}
 exit_handler 0
 exit 0
