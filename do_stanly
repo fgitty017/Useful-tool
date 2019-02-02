@@ -15,10 +15,10 @@
 #  cppcheck
 #
 # TODO ::
-#  + report file cleanup
-# - Tools curr not working:
-#   - scan-build
-# - make menuconfig interface
+# [+] report file cleanup
+# [ ] Tools curr not working:
+#    [ ] scan-build
+# [ ] make menuconfig interface
 #  
 # Ref: https://elinux.org/images/d/d3/Bargmann.pdf
 # 
@@ -28,10 +28,11 @@
 # Author:
 # (c) Kaiwan N Billimoria
 # kaiwan -at- kaiwantech -dot- com
-# 
 # License: MIT.
 name=$(basename $0)
+DEV=1
 
+[ ${DEV} -eq 0 ] && {
 PSTAN=stanly
 parent=$(ps -o comm= $PPID)
 [ "${parent}" != "${PSTAN}" ] && {
@@ -39,14 +40,14 @@ parent=$(ps -o comm= $PPID)
   echo "(Here and now, the parent is \"${parent}\")"
   exit 1
 }
+}
 
 ########### Globals / Configs follow #########################
 # Style: gNameOfGlobalVar
 
 # UPDATE on your box!
 gKSRC=/lib/modules/$(uname -r)/build/   # kernel source tree (kernel-headers)
-#gKSRC=~/kernel/linux-4.19.4/
-gSMATCH_LOC=~/tools_local/smatch        # smatch tool location
+gSMATCH_LOC=~/tools_local/smatch        # RELOOK- smatch tool location; /usr/local/bin ... ?
 
 ########### Functions follow #######################
 
@@ -58,17 +59,25 @@ Warn()
 # $1 : -q => quiet mode
 mkclean()
 {
+  [ ${KSRCTREE} -eq 1 ] && return
   local cmd="make clean"
   [ "$1" != "-q" ] && becho "[+] ${cmd}"
   eval "${cmd}" > /dev/null || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' failed"
 }
 
+# Parameter: $1 = kernel src tree root
 checkpatch_check()
 {
-  local cmd="${gKSRC}/scripts/checkpatch.pl --no-tree -f *.[ch]"
+  local cmd
+  pwd
+  local files=$(find . -maxdepth 1 -name "*.[ch]" |tr "\n" " ")
+
+  [ ${KSRCTREE} -eq 1 ] && \
+    cmd="${1}/scripts/checkpatch.pl --root=${1} --file ${files}" || \
+    cmd="${gKSRC}/scripts/checkpatch.pl --no-tree --file ${files}"
   mkclean -q
   becho "[+] checkpatch.pl: ${cmd}"
-  echo " cmd = $cmd"
+  #echo " cmd = $cmd"
   eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' failed"
 }
 
@@ -183,10 +192,9 @@ run_checkers()
   cd $1
   wecho "$(pwd)"
   mkclean -q
-  ls -l | sed '1d'
+  [ ${KSRCTREE} -eq 0 ] && ls -l | sed '1d'
   echo
-
-  checkpatch_check
+  checkpatch_check ${KTREEROOT}
   echo
   sparse_check
   echo
@@ -302,7 +310,8 @@ source ${PFX}/common.sh || {
 }
 
 techo "<<<<<<<<<<<<<<<< stanly : a static analysis tool integrator >>>>>>>>>>>>>>>>"
-KMODE=$2   # passed from our 'stanly' wrapper
+KSRCTREE=$2   # passed from our 'stanly' wrapper
+[ ${KSRCTREE} -eq 1 ] && KTREEROOT=$3   # passed from our 'stanly' wrapper
 tools_check
 start ${1}
 echo "|- End Run : $(date) -|"
