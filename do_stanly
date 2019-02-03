@@ -43,7 +43,7 @@
 # kaiwan -at- kaiwantech -dot- com
 # License: MIT.
 name=$(basename $0)
-DEV=0
+DEV=1
 
 [ ${DEV} -eq 0 ] && {
 PSTAN=stanly
@@ -74,13 +74,24 @@ Warn()
 # $1 : -q => quiet mode
 mkclean()
 {
+  local cmd
   [ ${KSRCTREE_MODE} -eq 1 ] && {
-   [ "$1" != "-q" ] && echo " No 'make clean' in kernel src tree mode"
-   return
-  }
-  local cmd="make clean"
+    cmd="make -C ${gSRC} clean"
+  } || cmd="make clean"
   [ "$1" != "-q" ] && becho "[+] ${cmd}"
-  eval "${cmd}" > /dev/null || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' ${FAILURE_MSG}"
+
+  (
+  cd ${KTREEROOT}
+  if [ ${KSRCTREE_MODE} -eq 1 ]; then
+   eval "${cmd}" >/dev/null 2>&1
+  else  # out-of-tree mode
+    [ "$1" = "-q" ] && {
+      eval "${cmd}" >/dev/null 2>&1 || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' ${FAILURE_MSG}"
+    } || {
+      eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' ${FAILURE_MSG}"
+    }
+  fi
+  )
 }
 
 checkpatch_check()
@@ -132,17 +143,16 @@ gccwarn1_check()
   becho "${CMD_MSGPFX}" ; echo " Tool # ${1}"
   [ ${KSRCTREE_MODE} -eq 1 ] && {
    cmd="make W=1 $(pwd)/"
-   becho "[+] gcc : ${cmd} : 'generally useful warnings'"
-   #pwd
+   becho "[+] gcc : ${cmd} : 'Generally useful warnings (-W1)'"
    (
    cd ${KTREEROOT}
    #pwd
-   eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' returned a 'fail' value"
+   eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' ${FAILURE_MSG}"
    )
   } || {
    cmd="make W=1"
-   becho "[+] gcc : ${cmd} 'generally useful warnings'"
-   eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' returned a 'fail' value"
+   becho "[+] gcc : ${cmd} 'Generally useful warnings (-W1)'"
+   eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' ${FAILURE_MSG}"
   }
 }
 
@@ -150,14 +160,31 @@ gccwarn1_check()
 gccwarn12_check()
 {
   local cmd="make W=12"
-  becho "${CMD_MSGPFX}" ; echo " Tool # ${1}"
   mkclean -q
-  becho "[+] gcc : ${cmd} 'possibly useful warnings'"
-  eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' ${FAILURE_MSG}"
+
+  becho "${CMD_MSGPFX}" ; echo " Tool # ${1}"
+  [ ${KSRCTREE_MODE} -eq 1 ] && {
+   cmd="make W=12 $(pwd)/"
+   becho "[+] gcc : ${cmd} : 'Generally useful +more warnings (-W12)'"
+   (
+   cd ${KTREEROOT}
+   #pwd
+   eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' ${FAILURE_MSG}"
+   )
+  } || {
+   cmd="make W=12"
+   becho "[+] gcc : ${cmd} 'Generally useful +more warnings (-W12)'"
+   eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' ${FAILURE_MSG}"
+  }
 }
 
 clang_check()
 {
+  [ ${KSRCTREE_MODE} -eq 1 ] && {
+    becho "${CMD_MSGPFX}" ; echo " Tool # ${1}"
+    wecho "[!] *** clang not supported for kernel build (yet)"
+    return
+  }
   local cmd="make -skj20 CC=$(which clang)"
    # make: -s=silent, -k=keep-going, -j# of jobs
   becho "${CMD_MSGPFX}" ; echo " Tool # ${1}"
@@ -182,12 +209,21 @@ coccinelle_check()
   eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' ${FAILURE_MSG}"
 }
 
+# Not OK for kernel-src-tree mode
 smatch_check()
 {
- # Ref: http://smatch.sourceforge.net/
-  local cmd="make CHECK=\"${gSMATCH_LOC}/smatch -p=kernel\" C=1"
-  becho "${CMD_MSGPFX}" ; echo " Tool # ${1}"
+  local cmd
   mkclean -q
+
+  [ ${KSRCTREE_MODE} -eq 1 ] && {
+    becho "${CMD_MSGPFX}" ; echo " Tool # ${1}"
+    wecho "'smatch' integration not supported for kernel build (yet)"
+    return
+  }
+
+ # Ref: http://smatch.sourceforge.net/
+  cmd="make CHECK=\"${gSMATCH_LOC}/smatch --project=kernel\" C=1"
+  becho "${CMD_MSGPFX}" ; echo " Tool # ${1}"
   becho "[+] smatch: ${cmd}"
   eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' ${FAILURE_MSG}"
 }
@@ -220,13 +256,13 @@ cppcheck_check()
 {
   local tooln=$1
   mkclean -q
-  local cmd="cppcheck -v ."
+  local cmd="cppcheck -v --force $(pwd)/"
   [ $# -eq 2 -a "$1" = "-q" ] && {
-    cmd="cppcheck -q -v ." ; tooln=$2
+    cmd="cppcheck -q -v --force $(pwd)/" ; tooln=$2
   }
   becho "${CMD_MSGPFX}" ; echo " Tool # ${tooln}"
   becho "[+] ${cmd}"
-  echo "On $(pwd)"
+  #echo "On $(pwd)"
   eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' ${FAILURE_MSG}"
   mkclean -q
 }
@@ -235,14 +271,24 @@ cppcheck_check()
 # Here, for PPC64
 xcc_test()
 {
-  mkclean -q
-  local cmd="make ARCH=powerpc CROSS_COMPILE=powerpc64-linux-"
-  [ "$1" = "-v" ] && cmd="make V=1 ARCH=powerpc CROSS_COMPILE=powerpc64-linux-"
+  local opt1 opt2 cmd
+  (
+  cd ${KTREEROOT}
+  make -C ${gSRC} ARCH=powerpc CROSS_COMPILE=powerpc64-linux- clean
+
+  [ ${KSRCTREE_MODE} -eq 1 ] && {
+    opt2="${gSRC}/"
+    [  "$2" = "-v" ] && opt1="V=1"
+  } || {
+    [  "$2" = "-v" ] && opt1="V=1"
+  }
+  cmd="make ${opt1} ARCH=powerpc CROSS_COMPILE=powerpc64-linux- ${opt2}"
+
   becho "${CMD_MSGPFX}" ; echo " Tool # ${1}"
+  becho "PowerPC64 cross-compilation check"
   becho "[+] ${cmd}"
-  #echo "On $(pwd)"
   eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' ${FAILURE_MSG}"
-  mkclean -q
+  )
 }
 
 # $1 : code folder to check
@@ -258,34 +304,42 @@ run_checkers()
   mkclean -q
   [ ${KSRCTREE_MODE} -eq 0 ] && ls -l | sed '1d'
 
+  # Tool #1
   echo
   checkpatch_check ${toolnum}
   let toolnum=toolnum+1
 
+  # Tool #2
   echo
   sparse_check ${toolnum}
   let toolnum=toolnum+1
 
+  # Tool #3
   echo
   gccwarn1_check ${toolnum}
   let toolnum=toolnum+1
 
+  # Tool #4
   echo
-  #gccwarn12_check ${toolnum}  # overkill
-  #let toolnum=toolnum+1
+  gccwarn12_check ${toolnum}  # overkill
+  let toolnum=toolnum+1
 
-  #echo
-  #clang_check ${toolnum}
-  #let toolnum=toolnum+1
+  # Tool #5
+  echo
+  clang_check ${toolnum}
+  let toolnum=toolnum+1
 
+  # Tool #6
   #echo
   #scan-build_check ${toolnum}
   #let toolnum=toolnum+1
 
+  # Tool #6
   echo
   coccinelle_check ${toolnum}
   let toolnum=toolnum+1
 
+  # Tool #7
   echo
   [ ${SKIP_SMATCH} -eq 0 ] && {
     smatch_check ${toolnum}
@@ -293,13 +347,16 @@ run_checkers()
     echo
   }
 
+  # Tool #8
   flawfinder_check ${toolnum}
   let toolnum=toolnum+1
 
+  # Tool #9
   echo
   cppcheck_check -q ${toolnum}
   let toolnum=toolnum+1
 
+  # Tool #10
   echo
   [ ${SKIP_XCC} -eq 0 ] && {
     xcc_test ${toolnum}
