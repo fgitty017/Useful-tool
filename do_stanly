@@ -43,7 +43,7 @@
 # kaiwan -at- kaiwantech -dot- com
 # License: MIT.
 name=$(basename $0)
-DEV=1
+DEV=0
 
 [ ${DEV} -eq 0 ] && {
 PSTAN=stanly
