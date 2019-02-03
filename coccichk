@@ -5,7 +5,7 @@
 # Run the Linux kernel's cocinelle semantic patch checkers on a given
 # source file(s) or folder. Realistically, a wrapper over spatch.
 #
-# Last Updated :
+# Last Updated : 03Feb2019
 # Created      : 23Aug2017
 # 
 # Author:
@@ -30,14 +30,18 @@ gVERBOSE=0
 
 ########### Functions follow #######################
 
+# spatch wrapper
 runcocci()
 {
+#echo "coccichk:runcocci(): params=$@"
+
 [ $# -ne 1 ] && return
 local cocci
 local SP_BASEOPTS="-D report --very-quiet --include-headers"
 local msg
 
-# If first parameter is a directory, then work on all source files within it
+# If first parameter is a directory, then recursively work on all
+# source files within it
 if [ -d $1 ] ; then
   SP_OPTS="${SP_BASEOPTS} --dir $1"
   msg="#Folder:${1}"
@@ -57,40 +61,50 @@ done
 
 ##### 'main' : execution starts here #####
 
-parent=$(ps -o comm= $PPID)
 which spatch >/dev/null || {
   echo "${name}: coccinelle (spatch) not installed?"
   exit 1
 }
 [ ! -d ${gKSRC_LOC} ] && {
   echo "${name}: kernel source tree location \"${gKSRC_LOC}\" invalid?"
-  [ "${parent}" = "bash" ] && exit 1 || return 1
 }
+
 [ "$1" = "-v" -a $# -lt 2 -o "$1" != "-v" -a $# -lt 1 ] && {
   echo "Usage: ${name} [-v] <source-pathname(s)> file1 [file2] [file3] ...
   -OR-
 ${name} source-folder"
-  [ "${parent}" = "bash" ] && exit 1 || return 1
+}
+
+[ 0 -eq 1 ] && {
+PSTAN=do_stanly
+parent=$(ps -o comm= $PPID)
+[ "${parent}" != "${PSTAN}" ] && {
+  echo "Must run the 'coccichk' script via it's wrapper 'stanly' project only"
+  echo "(Here and now, the parent is \"${parent}\")"
+  exit 1
+}
 }
 
 # Check for the optional verbose switch
-[ "$1" = "-v" ] && gVERBOSE=1
-shift
+[ "$1" = "-v" ] && {
+ gVERBOSE=1
+ shift
+}
 
 echo "${gInitMsg}"
 
-# TODO
-# Handle ^C ^\ properly; kill all spatch processes
+# TODO - handle ^C ^\ properly; kill all spatch processes
 
 # If a folder passed as $1
 if [ -d $1 ] ; then
   runcocci $1
-#  [ "${parent}" = "bash" ] && exit 0 || return 0
+  exit 0
 fi
 
 # If one or more files are passed, or a wildcard..
 for fname in "$@"
 do
+  #echo "////////// fname = ${fname}"
   file ${fname} |egrep -q "C source" || {
     echo "${name}: skipping ${fname} .."
 	continue
@@ -103,4 +117,3 @@ do
   }
   runcocci ${fname}
 done
-#[ "${parent}" = "bash" ] && exit 0 || return 0
