@@ -47,12 +47,8 @@ sed -i "s/\x1b.....//g" ${1}    # get rid of the ^[(B^[[m characters !
 check_ksrc_tree()
 {
 # Find the kernel source tree 'root'
-#export found=0
-
 pushd $(pwd) >/dev/null
 
-# In a sub-shell ...
-#(
 local TMP=/tmp/.ksrc_dirs_$$
 local found=0 climbed_up=1 numdirs=0
 # Careful! look for these 17 dirs under the kernel src tree root
@@ -83,7 +79,6 @@ rm -f ${TMP}
 } || {
   popd; return 1
 }
-#) # sub-shell
 }
 
 
@@ -100,33 +95,33 @@ Pl update PATH to include it's folder, then retry"
   exit 1
 }
 SRC=$1
-KSRCTREE=0   # is it a kernel source tree?
+KSRCTREE_MODE=0   # is it a kernel source tree?
 [ $# -eq 2 -a "$1" != "-k" ] && {
     help
     exit 1
 }
 [ $# -eq 2 ] && {  # kernel src tree
   SRC=$2
-  KSRCTREE=1
+  KSRCTREE_MODE=1
 }
 [ ! -d ${SRC} ] && {
   echo "${name}: path-to-codebase-to-check \"${SRC}\" invalid?"
   exit 1
 }
 
-decho "SRC = ${SRC} KSRCTREE=${KSRCTREE}"
+decho "SRC = ${SRC} KSRCTREE_MODE=${KSRCTREE_MODE}"
 echo -n "${name}: running in "
-[ ${KSRCTREE} -eq 0 ] && echo "*kernel-module* mode..." || echo "*kernel source tree* mode..."
+[ ${KSRCTREE_MODE} -eq 0 ] && echo "*kernel-module* mode..." || echo "*kernel source tree* mode..."
 
 echo -n "[.] Verifying if kernel source tree ..."
 check_ksrc_tree ${SRC}
 stat=$?
 # If -k passed, verify it's actually a, or within a, kernel src tree
-if [ ${KSRCTREE} -eq 1 -a ${stat} -ne 0 ]; then
+if [ ${KSRCTREE_MODE} -eq 1 -a ${stat} -ne 0 ]; then
     echo "${name}: the codebase folder \"${SRC}\" does NOT appear to be 
 a Linux kernel source tree, or a folder within it. Aborting ..."
     exit 1
-elif [ ${KSRCTREE} -eq 0 -a ${stat} -eq 0 ]; then
+elif [ ${KSRCTREE_MODE} -eq 0 -a ${stat} -eq 0 ]; then
     echo "${name}: the codebase folder \"${SRC}\" DOES appear to be 
 a Linux kernel source tree, or a folder within it. You must pass the option -k."
     exit 1
@@ -139,6 +134,6 @@ LOGFILE=${LOGDIR}/results_$(date +%a_%d%b%Y_%H%M)_$(basename ${SRC}).txt
 touch ${LOGFILE} || exit 1  # perm?
 
 becho "${name}:$(date) : logging to ${LOGFILE}"
-do_stanly ${SRC} ${KSRCTREE} ${KTREEROOT} 2>&1 | tee --append ${LOGFILE}
+do_stanly ${SRC} ${KSRCTREE_MODE} ${KTREEROOT} 2>&1 | tee --append ${LOGFILE}
 exit_handler 0
 exit 0
