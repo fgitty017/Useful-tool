@@ -36,7 +36,7 @@ runcocci()
 #echo "coccichk:runcocci(): params=$@"
 
 [ $# -ne 1 ] && return
-local cocci
+local cocci cmd
 local SP_BASEOPTS="-D report --very-quiet --include-headers"
 local msg
 
@@ -54,7 +54,9 @@ echo "${msg}"
 for cocci in $(find ${gKSRC_LOC}/scripts/coccinelle/ -name "*.cocci")
 do
  [ ${gVERBOSE} -eq 1 ] && echo "*--$(basename ${cocci})--*"
- spatch ${SP_BASEOPTS} --sp-file ${cocci} ${1}
+ cmd="spatch ${SP_BASEOPTS} --sp-file ${cocci} ${1}"
+ [ ${gVERBOSE} -eq 1 ] && echo "--> ${cmd}"
+ eval "${cmd}"
 done
 } # end runcocci()
 
