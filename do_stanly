@@ -20,7 +20,7 @@
 #    [ ] scan-build
 # [ ] More static analysers for ksrc tree !?
 # $ make help
-# Static analysers:
+# ... Static analysers:
 # [ ] checkstack      - Generate a list of stack hogs
 # [ ] namespacecheck  - Name space analysis on compiled kernel
 # [ ] versioncheck    - Sanity check on version.h usage
@@ -28,9 +28,9 @@
 # [ ] export_report   - List the usages of all exported symbols
 # [ ] headers_check   - Sanity check on exported headers
 # [ ] headerdep       - Detect inclusion cycles in headers
-# [+]  coccicheck      - Check with Coccinelle
+# [+] coccicheck      - Check with Coccinelle 
+#                      << We use OUR OWN script here: [/usr/local/bin/]coccichk
 # 
-#
 # [ ] make menuconfig interface
 #  
 # Ref: https://elinux.org/images/d/d3/Bargmann.pdf
@@ -76,7 +76,7 @@ mkclean()
 {
   local cmd
   [ ${KSRCTREE_MODE} -eq 1 ] && {
-    cmd="make -C ${gSRC} clean"
+    cmd="make -C ${CODEBASE2SCAN} clean"
   } || cmd="make clean"
   [ "$1" != "-q" ] && becho "[+] ${cmd}"
 
@@ -122,14 +122,20 @@ sparse_check()
   becho "${CMD_MSGPFX}" ; echo " Tool # ${1}"
   [ ${KSRCTREE_MODE} -eq 1 ] && {
    # '$(pwd)/' : the ending '/' is critical!
-   cmd="make C=1 CHECK=\"$(which sparse)\" $(pwd)/"
+
+   # From <ksrctree>/Makefile:
+   # ... 
+   # Use 'make C=1' to enable checking of only re-compiled files.
+   # Use 'make C=2' to enable checking of *all* source files, regardless
+   # of whether they are re-compiled or not.
+   cmd="make C=2 CHECK=\"$(which sparse)\" $(pwd)/"
    becho "[+] sparse: ${cmd}"
    (
    cd ${KTREEROOT}
    eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' ${FAILURE_MSG}"
    )
   } || {
-   cmd="make C=1 CHECK=\"$(which sparse)\""
+   cmd="make C=2 CHECK=\"$(which sparse)\""
    becho "[+] sparse: ${cmd}"
    eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' ${FAILURE_MSG}"
   }
@@ -165,7 +171,7 @@ gccwarn12_check()
   becho "${CMD_MSGPFX}" ; echo " Tool # ${1}"
   [ ${KSRCTREE_MODE} -eq 1 ] && {
    cmd="make W=12 $(pwd)/"
-   becho "[+] gcc : ${cmd} : 'Generally useful +more warnings (-W12)'"
+   becho "[+] gcc : ${cmd} : 'Generally useful + much more warnings (-W12)'"
    (
    cd ${KTREEROOT}
    #pwd
@@ -205,7 +211,7 @@ coccinelle_check()
   mkclean -q
   becho "[+] coccinelle: ${cmd}"
   echo " coccichk location: $(which coccichk)"
-  echo "On $(pwd)"
+  #echo "On $(pwd)"
   eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' ${FAILURE_MSG}"
 }
 
@@ -274,10 +280,10 @@ xcc_test()
   local opt1 opt2 cmd
   (
   cd ${KTREEROOT}
-  make -C ${gSRC} ARCH=powerpc CROSS_COMPILE=powerpc64-linux- clean
+  make -C ${CODEBASE2SCAN} ARCH=powerpc CROSS_COMPILE=powerpc64-linux- clean
 
   [ ${KSRCTREE_MODE} -eq 1 ] && {
-    opt2="${gSRC}/"
+    opt2="${CODEBASE2SCAN}/"
     [  "$2" = "-v" ] && opt1="V=1"
   } || {
     [  "$2" = "-v" ] && opt1="V=1"
@@ -300,7 +306,7 @@ run_checkers()
   local toolnum=1
 
   cd $1
-  wecho "$(pwd)"
+  wecho "In codebase :: $(pwd)"
   mkclean -q
   [ ${KSRCTREE_MODE} -eq 0 ] && ls -l | sed '1d'
 
@@ -320,9 +326,9 @@ run_checkers()
   let toolnum=toolnum+1
 
   # Tool #4
-  echo
-  gccwarn12_check ${toolnum}  # overkill
-  let toolnum=toolnum+1
+  #echo
+  #gccwarn12_check ${toolnum}  # overkill
+  #let toolnum=toolnum+1
 
   # Tool #5
   echo
@@ -357,6 +363,7 @@ run_checkers()
   let toolnum=toolnum+1
 
   # Tool #10
+  #SKIP_XCC=1
   echo
   [ ${SKIP_XCC} -eq 0 ] && {
     xcc_test ${toolnum}
@@ -373,7 +380,7 @@ local dir
 
 # For out-of-tree kernel module code, recursively iterate over each dir
 [ ${KSRCTREE_MODE} -eq 0 ] && {
-for dir in $(find ${gSRC} -type d \
+for dir in $(find ${CODEBASE2SCAN} -type d \
  -not -path "*.git*" -not -path "*.tmp_versions" -not -path "*tools") # RELOOK: why not 'tools*'?
 do
   #echo "In $dir:"
@@ -390,7 +397,7 @@ done
 # kernel-src-tree mode; the kbuild framework is a recursive one!
  echo "-----------------------------------------------------------"
  wecho "$(date)"
- run_checkers ${gSRC}
+ run_checkers ${CODEBASE2SCAN}
 }
 }
 
@@ -450,6 +457,8 @@ tools_check()
    Warn "${name}: 'powerpc64-linux-gcc' missing, pl install PPC64 cross-compiler"
    SKIP_XCC=1
  }
+SKIP_XCC=1
+
  echo " [.] OK"
 }
 
@@ -469,7 +478,7 @@ source ${PFX}/common.sh || {
 # 3 parameters received; passed along by 'stanly' wrapper
 #  dir-to-scan kernel-src-tree-mode[0|1] [kernel-src-tree-root]
 # Keep these global.
-export gSRC=$1
+export CODEBASE2SCAN=$1
 export KSRCTREE_MODE=$2
 [ ${KSRCTREE_MODE} -eq 1 ] && export KTREEROOT=$3
 [ ${KSRCTREE_MODE} -eq 1 ] &&
@@ -477,6 +486,8 @@ export KSRCTREE_MODE=$2
   CMD_MSGPFX="+---------------- out-of-tree mode ----------------+"
 
 techo "<<<<<<<<<<<<<<<< stanly : a static analysis tool integrator >>>>>>>>>>>>>>>>"
+echo
+becho "Codebase to scan :: ${CODEBASE2SCAN}"
 tools_check
 start_analysis
 echo "|- End Run : $(date) -|"

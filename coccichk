@@ -49,6 +49,8 @@ else
   msg="#FILE:${1}"
 fi
 
+msg="${msg}
+ Working, please wait ..."
 echo "${msg}"
 # Loop over all cocci sp's (semantic patches)
 for cocci in $(find ${gKSRC_LOC}/scripts/coccinelle/ -name "*.cocci")
@@ -56,7 +58,7 @@ do
  [ ${gVERBOSE} -eq 1 ] && echo "*--$(basename ${cocci})--*"
  cmd="spatch ${SP_BASEOPTS} --sp-file ${cocci} ${1}"
  [ ${gVERBOSE} -eq 1 ] && echo "--> ${cmd}"
- eval "${cmd}"
+ eval "${cmd}" 2>/dev/null
 done
 } # end runcocci()
 
