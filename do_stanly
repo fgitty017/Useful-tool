@@ -18,7 +18,7 @@
 # [+] report file cleanup
 # [ ] Tools curr not working:
 #    [ ] scan-build
-# [ ] More static analysers for ksrc tree !?
+# [.] More static analysers for ksrc tree !?
 # $ make help
 # ... Static analysers:
 # [ ] checkstack      - Generate a list of stack hogs
@@ -30,7 +30,8 @@
 # [ ] headerdep       - Detect inclusion cycles in headers
 # [+] coccicheck      - Check with Coccinelle 
 #                      << We use OUR OWN script here: [/usr/local/bin/]coccichk
-# 
+#
+# [ ] Reports: HTML format
 # [ ] make menuconfig interface
 #  
 # Ref: https://elinux.org/images/d/d3/Bargmann.pdf
@@ -99,7 +100,7 @@ checkpatch_check()
   local cmd
   pwd
   # We do have to recurse here! Only the 'make <target>' targets auto-recurse
-  local files=$(find . -name "*.[ch]" |tr "\n" " ")
+  local files=$(find . -name "*.[ch]" -not -path "*.mod.c" |tr "\n" " ")
   #local files=$(find . -maxdepth 1 -name "*.[ch]" |tr "\n" " ")
   local numfiles=$(echo ${files}|wc -w)
 
@@ -295,7 +296,102 @@ xcc_test()
   becho "[+] ${cmd}"
   eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' ${FAILURE_MSG}"
   )
-}
+} # xcc_test()
+
+# This func is Only called for kernel-src-tree mode
+kbuiltin_checkers()
+{
+  local cmd subnum=1
+# $ make help
+# ... Static analysers:                                             By Default
+# [+] checkstack      - Generate a list of stack hogs                   [Run]
+# [+] namespacecheck  - Name space analysis on compiled kernel          [Run]
+# [+] versioncheck    - Sanity check on version.h usage                 [Run]
+# [+] includecheck    - Check for duplicate included header files       [Run]
+# [+] export_report   - List the usages of all exported symbols         [Run]
+# [/] headers_check   - Sanity check on exported headers                [Run]
+# [+] headerdep       - Detect inclusion cycles in headers        [DON'T Run]
+# [.] coccicheck      - Check with Coccinelle                [Run separately]
+#                      << We use OUR OWN script here: [/usr/local/bin/]coccichk
+  
+  becho "These tools take time and work on the complete kernel source tree (not
+just a particular folder. Also, some require the kernel to be compiled and/or built."
+
+  (
+  cd ${KTREEROOT}
+
+  # checkstack
+  becho "${CMD_MSGPFX}" ; echo " Tool # ${1}.${subnum}
+      checkstack      - Generate a list of stack hogs"
+  cmd="make checkstack"
+  [ ! -f vmlinux ] && wecho "This tool expects 'vmlinux'; it's currently not built!"
+  becho "[+] ${cmd}"
+  eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' ${FAILURE_MSG}"
+  let subnum=subnum+1
+
+  # namespacecheck
+  becho "${CMD_MSGPFX}" ; echo " Tool # ${1}.${subnum}
+      namespacecheck  - Name space analysis on compiled kernel"
+  cmd="make namespacecheck"
+  echo "NOTE! This tool expects that the kernel is fully compiled (the object files are
+the primary input to the 'namespace.pl script ..."
+  becho "[+] ${cmd}"
+  eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' ${FAILURE_MSG}"
+  let subnum=subnum+1
+
+  # versioncheck
+  becho "${CMD_MSGPFX}" ; echo " Tool # ${1}.${subnum}
+      versioncheck    - Sanity check on version.h usage"
+  cmd="make versioncheck"
+  becho "[+] ${cmd}"
+  eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' ${FAILURE_MSG}"
+  let subnum=subnum+1
+
+  # includecheck
+  becho "${CMD_MSGPFX}" ; echo " Tool # ${1}.${subnum}
+      includecheck    - Check for duplicate included header files
+      [Can optionally pass the -r option switch to remove duplicate includes in place]"
+  cmd="make includecheck"
+  becho "[+] ${cmd}"
+  eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' ${FAILURE_MSG}"
+  let subnum=subnum+1
+
+  # export_report
+  becho "${CMD_MSGPFX}" ; echo " Tool # ${1}.${subnum}
+      export_report   - List the usages of all exported symbols"
+  cmd="make export_report"
+  becho "[+] ${cmd}"
+  eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' ${FAILURE_MSG}"
+  let subnum=subnum+1
+
+  # headers_check
+  becho "${CMD_MSGPFX}" ; echo " Tool # ${1}.${subnum}
+      headers_check   - Sanity check on exported headers"
+  cmd="make headers_check"
+  becho "[+] ${cmd}"
+  eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' ${FAILURE_MSG}"
+  let subnum=subnum+1
+
+  # headerdep
+  # Because of the Very voluminous output can result, we disable this one
+  # by default
+  local SKIP_HEADERDEP=1
+  [ ${SKIP_HEADERDEP} -eq 1 ] && {
+  becho "${CMD_MSGPFX}" ; echo " Tool # ${1}.${subnum}
+      headerdep       - Detect inclusion cycles in headers"
+  cmd="make headerdep"
+  becho "[+] ${cmd}
+  NOTE: Very voluminous output can result!"
+  eval "${cmd}" || Warn "*** $(pwd) : ${FUNCNAME[0]}(): cmd '${cmd}' ${FAILURE_MSG}"
+  let subnum=subnum+1
+  } || echo "Skipping the 'headerdep' check"
+
+  becho "[--- Done; ${subnum} kernel builtin static analysis 'tools' run. ---]"
+
+  )
+
+} # kbuiltin_checkers()
+
 
 # $1 : code folder to check
 run_checkers()
@@ -309,6 +405,13 @@ run_checkers()
   wecho "In codebase :: $(pwd)"
   mkclean -q
   [ ${KSRCTREE_MODE} -eq 0 ] && ls -l | sed '1d'
+
+  # Kernel source tree: builtin static analysis checkers
+  [ ${KSRCTREE_MODE} -eq 1 ] && {
+    kbuiltin_checkers ${toolnum}
+  }
+
+#exit 0
 
   # Tool #1
   echo

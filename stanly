@@ -79,8 +79,7 @@ rm -f ${TMP}
 } || {
   popd; return 1
 }
-}
-
+} # end check_ksrc_tree()
 
 # Expect the 'stanly' script to be in the PATH
 which do_stanly >/dev/null || {
@@ -96,6 +95,8 @@ Pl update PATH to include it's folder, then retry"
 }
 SRC=$1
 KSRCTREE_MODE=0   # is it a kernel source tree?
+# TODO - auto-detect the mode !
+
 [ $# -eq 2 -a "$1" != "-k" ] && {
     help
     exit 1
