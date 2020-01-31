@@ -85,7 +85,7 @@ rm -f ${TMP}
 which do_stanly >/dev/null || {
    echo "${name}: we expect our 'stanly' script location to be in the PATH env var.
 Pl update PATH to include it's folder, then retry"
-   return 1
+   exit 1
  }
 
 # Arg checking

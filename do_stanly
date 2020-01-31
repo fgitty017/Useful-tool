@@ -506,29 +506,37 @@ done
 
 tools_check()
 {
+ local FLAG_FATAL=0 FLAG_WARN=0 TOOLS_REQD="" WARN_TOOLS_REQD=""
  becho "[+] Checking tools availability..."
 
- [ ! -d ${gKSRC} ] && {
-   echo "${name}: kernel source tree / kernel-headers not available? Pl install"
-   exit 1
+ [ ! -d "${gKSRC}" ] && {
+   TOOLS_REQD=" kernel source tree / kernel-headers package"
+   FLAG_FATAL=1
+   #echo "${name}: kernel source tree / kernel-headers not available? Pl install"
+   #exit 1
  }
  which gcc >/dev/null || {
-   echo "${name}: 'gcc' missing, pl install"
-   exit 1
+   TOOLS_REQD="${TOOLS_REQD}
+ - gcc"
+   FLAG_FATAL=1
  }
  which clang >/dev/null || {
-   echo "${name}: 'clang' missing, pl install"
-   exit 1
+   TOOLS_REQD="${TOOLS_REQD}
+ - clang"
+   FLAG_FATAL=1
  }
  which sparse >/dev/null || {
-   echo "${name}: 'sparse' missing, pl install"
-   exit 1
+   TOOLS_REQD="${TOOLS_REQD}
+ - sparse"
+   FLAG_FATAL=1
  }
 
  # Coccinelle
  which spatch >/dev/null || {
    echo "${name}: 'spatch' missing, pl install the 'coccinelle' package"
-   exit 1
+   TOOLS_REQD="${TOOLS_REQD}
+ - 'spatch' missing, pl install the 'coccinelle' package"
+   FLAG_FATAL=1
  }
  # 'coccichk' to be installed into /usr/local/bin (or ~/bin) on first run
  echo "coccichk location: $(which coccichk)"
@@ -541,26 +549,40 @@ tools_check()
 
  SKIP_SMATCH=0
  [ ! -f ${gSMATCH_LOC}/smatch ] && {
-   Warn "${name}: (local) 'smatch' tool missing, pl install;
- [smatch-check() will be skipped]"
+   FLAG_WARN=1
+   WARN_TOOLS_REQD=" - (local) 'smatch' [smatch-check() will be skipped]"
    SKIP_SMATCH=1
  }
 
  which flawfinder >/dev/null || {
-   echo "${name}: 'flawfinder' missing, pl install"
-   exit 1
+   TOOLS_REQD="${TOOLS_REQD}
+ - flawfinder"
+   FLAG_FATAL=1
  }
  which cppcheck >/dev/null || {
-   echo "${name}: 'cppcheck' missing, pl install"
-   exit 1
+   TOOLS_REQD="${TOOLS_REQD}
+ - cppcheck"
+   FLAG_FATAL=1
  }
 
  SKIP_XCC=0
  which powerpc64-linux-gcc >/dev/null || {
-   Warn "${name}: 'powerpc64-linux-gcc' missing, pl install PPC64 cross-compiler"
+   FLAG_WARN=1
+   WARN_TOOLS_REQD="${WARN_TOOLS_REQD}
+ - powerpc64-linux-gcc [xcc_test() will be skipped]"
    SKIP_XCC=1
  }
-SKIP_XCC=1
+#SKIP_XCC=1
+
+ [ ${FLAG_FATAL} -eq 1 ] && {
+   FatalError "${name}: the following tools/utils require to be installed; do so and then retry...
+${TOOLS_REQD}"
+ }
+ echo
+ [ ${FLAG_WARN} -eq 1 ] && {
+   echo "WARNING! ${name}: the following tools/utils require to be installed; do so and then retry...
+${WARN_TOOLS_REQD}"
+ }
 
  echo " [.] OK"
 }
@@ -584,9 +606,11 @@ source ${PFX}/common.sh || {
 export CODEBASE2SCAN=$1
 export KSRCTREE_MODE=$2
 [ ${KSRCTREE_MODE} -eq 1 ] && export KTREEROOT=$3
-[ ${KSRCTREE_MODE} -eq 1 ] &&
-  CMD_MSGPFX="+---------------- kernel-src-tree mode ----------------+" ||
+if [ ${KSRCTREE_MODE} -eq 1 ] ; then
+  CMD_MSGPFX="+---------------- kernel-src-tree mode ----------------+"
+else
   CMD_MSGPFX="+---------------- out-of-tree mode ----------------+"
+fi
 
 techo "<<<<<<<<<<<<<<<< stanly : a static analysis tool integrator >>>>>>>>>>>>>>>>"
 echo
